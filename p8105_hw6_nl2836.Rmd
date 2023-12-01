@@ -78,12 +78,27 @@ cities_glm <- cleaned_homicide %>%
          CI_lower = conf.low, 
          CI_upper = conf.high,
          p_value = p.value) %>% 
-  select(city_state, OR, CI_lower, CI_upper) %>% 
-  knitr::kable(digits = 3)
+  select(city_state, OR, CI_lower, CI_upper) 
 
 cities_glm
 ```
+# MISSING DESCRIPTION
 
+##### Create a plot that shows the estimated ORs and CIs for each city. Organize cities according to estimated OR, and comment on the plot.
+
+
+```{r, dpi = 300}
+OR_plot = 
+  ggplot(cities_glm, aes(x = reorder(city_state, OR), y = OR)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = CI_lower, ymax = CI_upper)) +
+  coord_flip() +
+  labs(x = "City", y = "Odds Ratio (OR)", 
+       title = "Estimated ORs and CIs for Solving Homicides in Each City") +
+  theme_minimal()
+
+OR_plot
+```
 
 
 
