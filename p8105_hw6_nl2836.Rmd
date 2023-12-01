@@ -1,0 +1,48 @@
+---
+title: "p8105_hw6_bl2836"
+author: "Ngan Le"
+date: "2023-12-01"
+output: github_document
+---
+
+```{r setup, message = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readr)
+library(rvest)
+library(dplyr)
+library(patchwork)
+```
+
+# Question 1
+
+##### Import dataset from CSV file. 
+
+```{r import homicide data, message = FALSE}
+homicide = read_csv("homicide-data.csv")
+```
+
+This dataset includes `r nrow(homicide)` observations and `r ncol(homicide)` variables, reporting the date, the city, the state, the coordinates of the incidences, the victims' name, age, race, gender, and the disposition of the case. The incidences are reported across `r n_distinct(homicide$state)` states from 2007-2017. 
+
+##### Create a city_state variable (e.g. “Baltimore, MD”), and a binary variable indicating whether the homicide is solved. Omit cities Dallas, TX; Phoenix, AZ; and Kansas City, MO – these don’t report victim race. Also omit Tulsa, AL – this is a data entry mistake. For this problem, limit your analysis those for whom victim_race is white or black. Be sure that victim_age is numeric.
+
+```{r create city_state & binary homicide vars}
+cleaned_homicide =
+  homicide %>%
+  mutate(city_state = str_c(city, ", ", state)) %>% 
+  mutate(solved = ifelse(disposition %in% c("Closed by arrest","Closed without arrest"), 1, 0)) %>%
+  filter(!city_state %in% c("Dallas, TX", "Phoenix, AZ", "Kansas City, MO", "Tulsa, AL")) %>%
+  filter(victim_race %in% c("White", "Black")) %>%
+  mutate(victim_age = ifelse(victim_age == "unknown", NA, victim_age)) %>%
+  mutate(victim_age = as.numeric(victim_age))
+
+
+cleaned_homicide
+```
+
+##### For the city of Baltimore, MD, use the glm function to fit a logistic regression with resolved vs unresolved as the outcome and victim age, sex and race as predictors. Save the output of glm as an R object; apply the broom::tidy to this object; and obtain the estimate and confidence interval of the adjusted odds ratio for solving homicides comparing male victims to female victims keeping all other variables fixed.
+
+
+
+
+
