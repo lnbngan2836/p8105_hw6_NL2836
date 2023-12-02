@@ -202,3 +202,42 @@ CI_result <- log_betas %>%
 
 # MISSING MEAN AND SD, 95% CI DESCRIPTION
 
+```{r download dataset, message = FALSE}
+birthwt <- read_csv("birthweight.csv")
+```
+
+```{r}
+birthwt %>% 
+  janitor::clean_names() %>% 
+  mutate(
+    babysex = ifelse(babysex == "1", "male","female"),
+    malform = ifelse(malform == "0", "absent","present"),
+    frace = recode(frace, 
+                   "1" = "White", 
+                   "2" = "Black", 
+                   "3" = "Asian", 
+                   "4" = "Puerto Rican", 
+                   "8" = "Other", 
+                   "9" = "Unknown"),
+    mrace = recode(mrace, 
+                   "1" = "White", 
+                   "2" = "Black", 
+                   "3" = "Asian", 
+                   "4" = "Puerto Rican", 
+                   "8" = "Other")
+    ) %>%
+   mutate(
+    babysex = as.factor(babysex),
+    frace = as.factor(frace),
+    malform = as.factor(malform),
+    mrace = as.factor(mrace),
+    parity = as.factor(parity),
+    pnumlbw = as.factor(pnumlbw),
+    pnumsga = as.factor(pnumsga)
+    )
+```
+
+```{r}
+skimr::skim(birthwt)
+```
+
