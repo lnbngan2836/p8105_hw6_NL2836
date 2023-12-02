@@ -82,12 +82,12 @@ cities_glm <- cleaned_homicide %>%
 
 cities_glm
 ```
-# MISSING DESCRIPTION
+# MISSING OR DESCRIPTION
 
 ##### Create a plot that shows the estimated ORs and CIs for each city. Organize cities according to estimated OR, and comment on the plot.
 
 
-```{r, dpi = 300}
+```{r OR plot, dpi = 300}
 OR_plot = 
   ggplot(cities_glm, aes(x = reorder(city_state, OR), y = OR)) +
   geom_point() +
@@ -100,5 +100,105 @@ OR_plot =
 OR_plot
 ```
 
+# MISSING PLOT DESCRIPTION
 
+# Question 2
+
+###### Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of these two quantities. Plot the distribution of your estimates, and describe these in words. Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r̂2 and log(β̂0∗β̂1). Note: broom::glance() is helpful for extracting r̂2 from a fitted regression, and broom::tidy() (with some additional wrangling) should help in computing log(β̂1∗β̂2).
+
+```{r download dataset}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2022-01-01",
+    date_max = "2022-12-31") |>
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) |>
+  select(name, id, everything())
+```
+
+```{r bootstrap}
+model <- lm(tmax ~ tmin + prcp, data = weather_df)
+
+set.seed(123456)
+
+boot_sample = function(df) {
+  sample_frac(df, replace = TRUE)
+}
+
+straps = 
+  data_frame(
+    strap_number = 1:5000,
+    strap_sample = rerun(5000, boot_sample(weather_df))
+  )
+```
+
+
+```{r bootstrap betas, warning = FALSE}
+bootstrap_betas = 
+  straps %>% 
+  mutate(
+    models = map(strap_sample, ~lm(tmax ~ tmin + prcp, data = .x) ),
+    results = map(models, broom::tidy)) %>% 
+  select(-strap_sample, -models) %>% 
+  unnest(results) 
+
+log_betas <-  
+  bootstrap_betas %>%
+  group_by(strap_number) %>%
+  summarise(log_betas = log(estimate[2] * estimate[3])) %>%
+  select(log_betas, strap_number)
+```
+
+```{r bootstrap r2}
+bootstrap_r2 <- 
+  straps %>% 
+  mutate(
+    models = map(strap_sample, ~lm(tmax ~ tmin + prcp, data = .x) ),
+    results = map(models, broom::glance)) %>% 
+  select(-strap_sample, -models) %>% 
+  unnest(results) 
+
+r_squared <- 
+  bootstrap_r2 %>%
+  select(r.squared, strap_number)
+```
+
+```{r betas plot, warning = FALSE}
+ggplot(log_betas, aes(x = log_betas)) + 
+  geom_density() +
+  labs(title = "Distribution of log(Beta1 * Beta2)") +
+  theme_minimal()
+```
+
+
+```{r r2 plot}
+ggplot(r_squared, aes(x = r.squared)) + 
+  geom_density() +
+  labs(title = "R-squared Distribution") +
+  theme_minimal()
+```
+
+Mean and SD. 
+
+```{r}
+r_squared1 = r_squared %>%
+  summarise(r_squared_sd = sd(r.squared), 
+            r_squared_mean = mean(r.squared)) %>%
+  pull(r_squared_sd, r_squared_mean)
+
+log_betas1 = log_betas %>% 
+  summarise(log_betas_sd = sd(as.numeric(log_betas),na.rm = TRUE),
+           log_betas_mean = mean(as.numeric(log_betas), na.rm = TRUE) ) %>%
+  pull(log_betas_sd, log_betas_mean) 
+
+CI_result <- log_betas %>%
+  summarize(ci_lower = quantile(log_betas, 0.025, na.rm = TRUE),
+            ci_upper = quantile(log_betas, 0.975, na.rm = TRUE))
+```
+
+# MISSING MEAN AND SD, 95% CI DESCRIPTION
 
