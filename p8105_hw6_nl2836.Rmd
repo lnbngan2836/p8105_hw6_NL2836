@@ -38,7 +38,6 @@ cleaned_homicide
 
 ##### For the city of Baltimore, MD, use the glm function to fit a logistic regression with resolved vs unresolved as the outcome and victim age, sex and race as predictors. Save the output of glm as an R object; apply the broom::tidy to this object; and obtain the estimate and confidence interval of the adjusted odds ratio for solving homicides comparing male victims to female victims keeping all other variables fixed.
 
-
 ```{r baltimore glm}
 baltimore_glm =
   cleaned_homicide %>%
@@ -61,15 +60,29 @@ baltimore_glm =
 baltimore_glm
 ```
 
-_With the `female` being the reference category for sex and `Black` being the reference category for race: the odds of having the homicide case solved among male victims is 0.355 times the odds of having homicide case solved among female victims. Since the p-value is smaller than 0.05, we have sufficient evidence to claim that the odds of having the homicide case solved are significantly different between male and female victims._
+_With the `female` being the reference category for sex and `Black` being the reference category for race: the odds of having the homicide case solved among male victims is 0.355 times the odds of having homicide case solved among female victims (deducted from `victim_sexMale`). Since the p-value is smaller than 0.05, we have sufficient evidence to claim that the odds of having the homicide case solved are significantly different between male and female victims._
+
+##### Now run glm for each of the cities in your dataset, and extract the adjusted odds ratio (and CI) for solving homicides comparing male victims to female victims. Do this within a “tidy” pipeline, making use of purrr::map, list columns, and unnest as necessary to create a dataframe with estimated ORs and CIs for each city.
 
 ```{r cities_glm, warning = FALSE}
 cities_glm <- cleaned_homicide %>% 
   group_by(city_state) %>%
   nest() %>%
   mutate(
-    regression = map(data, ~glm(formula = solved ~ victim_age + victim_sex + victim_race, data = ., family = binomial())),
-    solved_cities = map(regression, ~broom::tidy(.x, exponentiate = TRUE, conf.int = TRUE, conf.level = 0.95))
+    regression = 
+      map(data, ~glm(formula = 
+                       solved ~ victim_age + 
+                       victim_sex + 
+                       victim_race, 
+                     data = ., 
+                     family = binomial()
+                     )),
+    solved_cities = map(regression, 
+                        ~broom::tidy(
+                          .x, 
+                          exponentiate = TRUE, 
+                          conf.int = TRUE, 
+                          conf.level = 0.95))
   ) %>% 
   select(-data, -regression) %>% 
   unnest(solved_cities) %>% 
@@ -82,7 +95,7 @@ cities_glm <- cleaned_homicide %>%
 
 cities_glm
 ```
-# MISSING OR DESCRIPTION
+_Among 47 cities, adjusting for victim race and age, New York, NY has the lowest OR (0.16, 95% CI: 0.07 - 0.33) and Fresno, CA has the highest OR (1.13, 95%: 0.45 - 2.65) for solving homicides comparing male victims to female victims. Since the 95% CI of the OR for solving homicides comparing male victims to female victims in New York, NY does not include the value of 1, this mean the OR is significant, or we have sufficient evidence to claim that the OR is significantly different than 1. Using the same logic, we conclude that we do not have sufficient evidence to claim that the OR for solving homicides comparing male victims to female victims in Fresno, CA is significantly different than 1. The city with the highest significant OR is Los Angeles, CA (0.67, 95% CI: 0.46 - 0.95)._
 
 ##### Create a plot that shows the estimated ORs and CIs for each city. Organize cities according to estimated OR, and comment on the plot.
 
@@ -95,18 +108,19 @@ OR_plot =
   coord_flip() +
   labs(x = "City", y = "Odds Ratio (OR)", 
        title = "Estimated ORs and CIs for Solving Homicides in Each City") +
-  theme_minimal()
+  theme_minimal()+
+  theme(axis.text.y = element_text(size = 8))
 
 OR_plot
 ```
 
-# MISSING PLOT DESCRIPTION
+_In additions to comments above, we can see from the plot that most cities have the OR for solving homicides comparing male victims to female victims, adjusting for victim race and age, cluster around 0 and 1, except for Oklahoma City, OK, Stockton, CA, Minneapolis, MN, Fresno, CA, whose ORs seem to deviate from other cities' and get larger than 1 (except Oklahoma City). A lot of the error bars of the cities with OR < 1 do not exceed 1, which indicates significant ORs. We can conclude that in general, we observe a lower odds of having the homicide cases solved among male victims compared to that of female victims across 47 cities. _
 
 # Question 2
 
 ###### Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of these two quantities. Plot the distribution of your estimates, and describe these in words. Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r̂2 and log(β̂0∗β̂1). Note: broom::glance() is helpful for extracting r̂2 from a fitted regression, and broom::tidy() (with some additional wrangling) should help in computing log(β̂1∗β̂2).
 
-```{r download dataset}
+```{r download weather dataset}
 weather_df = 
   rnoaa::meteo_pull_monitors(
     c("USW00094728"),
@@ -121,7 +135,8 @@ weather_df =
 ```
 
 ```{r bootstrap}
-model <- lm(tmax ~ tmin + prcp, data = weather_df)
+model =
+  lm(tmax ~ tmin + prcp, data = weather_df)
 
 set.seed(123456)
 
@@ -146,7 +161,7 @@ bootstrap_betas =
   select(-strap_sample, -models) %>% 
   unnest(results) 
 
-log_betas <-  
+log_betas =  
   bootstrap_betas %>%
   group_by(strap_number) %>%
   summarise(log_betas = log(estimate[2] * estimate[3])) %>%
@@ -154,7 +169,7 @@ log_betas <-
 ```
 
 ```{r bootstrap r2}
-bootstrap_r2 <- 
+bootstrap_r2 = 
   straps %>% 
   mutate(
     models = map(strap_sample, ~lm(tmax ~ tmin + prcp, data = .x) ),
@@ -162,7 +177,7 @@ bootstrap_r2 <-
   select(-strap_sample, -models) %>% 
   unnest(results) 
 
-r_squared <- 
+r_squared = 
   bootstrap_r2 %>%
   select(r.squared, strap_number)
 ```
@@ -182,28 +197,38 @@ ggplot(r_squared, aes(x = r.squared)) +
   theme_minimal()
 ```
 
-Mean and SD. 
+Calculate Mean and SD. 
 
 ```{r}
-r_squared1 = r_squared %>%
-  summarise(r_squared_sd = sd(r.squared), 
-            r_squared_mean = mean(r.squared)) %>%
-  pull(r_squared_sd, r_squared_mean)
+r2_stat = r_squared %>%
+  summarise(r2_sd = sd(r.squared), 
+            r2_mean = mean(r.squared)) %>%
+  pull(r2_sd, r2_mean)
 
-log_betas1 = log_betas %>% 
+log_betas_stat = log_betas %>% 
   summarise(log_betas_sd = sd(as.numeric(log_betas),na.rm = TRUE),
            log_betas_mean = mean(as.numeric(log_betas), na.rm = TRUE) ) %>%
   pull(log_betas_sd, log_betas_mean) 
 
-CI_result <- log_betas %>%
+CI_log_betas = log_betas %>%
   summarize(ci_lower = quantile(log_betas, 0.025, na.rm = TRUE),
             ci_upper = quantile(log_betas, 0.975, na.rm = TRUE))
+
+CI_r2 = r_squared %>%
+  summarize(ci_lower = quantile(r_squared, 0.025, na.rm = TRUE),
+            ci_upper = quantile(r_squared, 0.975, na.rm = TRUE))
 ```
 
-# MISSING MEAN AND SD, 95% CI DESCRIPTION
+_R-squared has a mean of 0.917 and a standard deviation (SD) of 0.0136. 95% CI: 0.916, 0.917._
 
-```{r download dataset, message = FALSE}
-birthwt <- read_csv("birthweight.csv")
+_log(b1*b2) has a 95% CI:-9.13, -4.57._
+
+_The distribution of r-squared is roughly normal, while the distribution of log(b1*b2) is left skewed._
+
+# Question 3
+
+```{r download birthwt dataset, message = FALSE}
+birthwt = read_csv("birthweight.csv")
 ```
 
 ```{r}
@@ -241,3 +266,105 @@ birthwt %>%
 skimr::skim(birthwt)
 ```
 
+_No missing data, no need for further cleaning._
+
+Using stepwise regression to determine best model
+
+```{r initial model}
+initial_model = lm(bwt ~ ., data = birthwt)
+summary(initial_model)
+
+step(initial_model, direction = 'both')
+```
+
+_Suggested model is bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken, data = birthwt_
+
+Build new model with covariates selection from stepwise regression above.
+
+```{r final model}
+final_model = 
+  lm(bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken, data = birthwt)
+
+summary(final_model)%>%
+  broom::tidy() %>%
+  select(term, estimate, p.value)
+
+summary(final_model)%>%
+  broom::glance()
+```
+
+_All variables in the model demonstrate significant p-values (less than 0.05), indicating their statistical significance. Furthermore, the model exhibits an adjusted R-squared value of 0.710, which suggests that 71.0% of the variation in birthweight is accounted for by these variables. This implies that the variables included in the model have a strong and significant association with birthweight._
+
+```{r fitted plot}
+birthwt %>% 
+  modelr::add_residuals(initial_model) %>%
+  modelr::add_predictions(final_model) %>% 
+  ggplot(aes(x = pred, y = resid)) + 
+  geom_point(alpha = 0.3) +
+  labs(
+    title = "Residuals vs Chosen Fitted Plot for Birthweight Model",
+    x = "Fited values",
+    y = "Residuals"
+    ) +
+  theme(plot.title = element_text(hjust = 0.5))+
+  geom_line(aes(y = 0), color = "red")
+```
+
+_Residuals scatter randomly around 0._
+
+```{r models}
+model_1 = lm(bwt ~ blength + gaweeks, data = birthwt)
+
+model_2 = lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex + bhead * blength * babysex, data = birthwt)
+```
+
+```{r cross validation}
+set.seed(234567)
+
+cross_validation = 
+  modelr::crossv_mc(birthwt, 100)
+  
+
+cv = cross_validation %>%
+   mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble))
+
+cv_df =
+  cross_validation %>%
+   mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble))
+
+cv_df =
+  cv_df %>%
+    mutate(
+    proposed = map(train, ~lm(bwt ~ babysex + bhead + blength + delwt + fincome + gaweeks + mheight + mrace + parity + ppwt + smoken, data = .x)),
+    model_length_gaweeks = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+    model_interactions  = map(train, ~lm(bwt ~ (bhead + blength + babysex)^3, data = .x))
+    ) %>%
+   mutate(
+    rmse_proposed = map2_dbl(proposed, test, ~modelr::rmse(model = .x, data = .y)),
+    rmse_length_gaweeks = map2_dbl(model_length_gaweeks, test, ~modelr::rmse(model = .x, data = .y)),
+    rmse_interactions = map2_dbl(model_interactions, test, ~modelr::rmse(model = .x, data = .y))
+   )
+```
+
+```{r plots, dpi = 300}
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse, color=model)) + 
+  geom_violin() +   geom_boxplot(alpha = 0.5)+
+  labs(title = 
+  "Prediction Error Distributions across Models", 
+       x = "Models", y = "RMSE") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+_`Proposed` model shown to be the best option due to lowest RMSE._
